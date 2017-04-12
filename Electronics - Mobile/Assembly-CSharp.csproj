@@ -87,6 +87,7 @@
      <Compile Include="Assets\LeanTouch\Scripts\LeanTouch.cs" />
      <Compile Include="Assets\scripts\circuitController.cs" />
      <Compile Include="Assets\scripts\curvedLine.cs" />
+     <Compile Include="Assets\scripts\lookUpCamera.cs" />
      <Compile Include="Assets\scripts\resScrpt.cs" />
      <None Include="Assets\LeanTouch\Examples\Fonts\OFL.txt" />
      <None Include="Assets\circuit\shaders\WrapAlpha.shader" />

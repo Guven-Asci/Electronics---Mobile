@@ -33,6 +33,10 @@ public class circuitController : MonoBehaviour {
     public List<string> resList=new List<string>();
     int resCount;
     public List<string> holeEquivalent = new List<string>();
+    public List<string> parallelRes = new List<string>();
+    public List<string> serialRes = new List<string>();
+
+    public Text parallelAndSerialText; 
 	// Use this for initialization
 	void Start () {
 
@@ -58,8 +62,8 @@ public class circuitController : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-        findParallelRes();
-        //Debug.Log(shortCircuit("3", "5"));
+        printParallelandSerials();
+        
         if (Input.touchCount == 1)
         {
             mouseRay = Camera.main.ScreenPointToRay(new Vector3(Input.GetTouch(0).position.x, Input.GetTouch(0).position.y, temp));
@@ -118,6 +122,7 @@ public class circuitController : MonoBehaviour {
                 if (selectedComponent == "cable" && cableOnMouse!=null)
                 {
                     cableOnMouse.GetComponent<curvedLine>().finish(nearestHole(mousePosition).transform.position);
+                    cableOnMouse.name = firstPinTemp + "-" + nearestHole(mousePosition).name.Substring(1);
                     cableOnMouse = null;
                     makeHoleEq(firstPinTemp,nearestHole(mousePosition).name.Substring(1));
                         
@@ -126,10 +131,10 @@ public class circuitController : MonoBehaviour {
                 {
                     resistorOnMouse.GetComponent<resScrpt>().secondProbe = nearestHole(mousePosition).transform.position;
                     resList.Add(resistorOnMouse.name+"-"+firstPinTemp + "-"+nearestHole(mousePosition).transform.name);
-                    resistorOnMouse = null;
-                    
-                        
+                    resistorOnMouse = null;     
                 }
+                findParallelRes();
+                findSerialRes();
                 
             }
         }
@@ -162,12 +167,40 @@ public class circuitController : MonoBehaviour {
         }
     }
 
+    public void reset()
+    {
+        Application.LoadLevel(Application.loadedLevel);
+    }
+
     public void openSpecifications() {
-        Debug.Log(hit.transform.name);
+        if(hit.transform.tag=="resistor"){
+            foreach (string res in resList)
+            {
+                if (res.StartsWith(hit.transform.name))
+                {
+                    resList.Remove(res);
+                    Destroy(hit.transform.gameObject);
+                }
+                    
+            }
+            
+        }
+
+        else if (hit.transform.tag == "cable")
+        {
+            string[] strArray = hit.transform.parent.name.Split("-"[0]);
+            holeEquivalent.Remove(strArray[0]+"-"+strArray[1]);
+            holeEquivalent.Remove(strArray[1] + "-" + strArray[0]);
+            Destroy(hit.transform.parent.gameObject);
+        }
+
+        findParallelRes();
+        findSerialRes();
     }
 
     void findParallelRes()
     {
+        parallelRes=new List<string>();
         for (int i=0;i<resList.Count;i++)
         {
             string[] strArray = resList[i].Split("-"[0]);
@@ -180,10 +213,112 @@ public class circuitController : MonoBehaviour {
                     (shortCircuit(strArray[2].Substring(1), strArray2[1].Substring(1))
                     && shortCircuit(strArray[1].Substring(1), strArray2[2].Substring(1))))
                 {
-                    Debug.Log(strArray[0] + "+" + strArray2[0]);
+                    parallelRes.Add(strArray[0] + "//" + strArray2[0]);
                 }
             }
             
+        }
+    }
+
+    void findSerialRes()
+    {
+        serialRes=new List<string>();
+        for (int i = 0; i < resList.Count; i++)
+        {
+            string[] strArray = resList[i].Split("-"[0]);
+            for (int j = i + 1; j < resList.Count; j++)
+            {
+                
+                string[] strArray2 = resList[j].Split("-"[0]);
+                if (shortCircuit(strArray[1].Substring(1), strArray2[1].Substring(1)) || shortCircuit(strArray[2].Substring(1), strArray2[1].Substring(1)))
+                {
+                    bool areThereMore = false;
+                    for (int k = 0; k < resList.Count; k++)
+                    {
+                        string[] strArray3 = resList[k].Split("-"[0]);
+                        if (shortCircuit(strArray3[1].Substring(1), strArray2[1].Substring(1)) || 
+                            shortCircuit(strArray3[2].Substring(1), strArray2[1].Substring(1)))
+                        {
+                            if (!(strArray3[0] == strArray[0] || strArray3[0] == strArray2[0]))
+                                areThereMore = true;
+                        }
+                    }
+                    if (!areThereMore)
+                    {
+                        bool areTheyParallel = false;
+                        foreach (string parallel in parallelRes)
+                        {
+                            string[] strArray4 = parallel.Split("//"[0]);
+                            if (strArray4[0].Substring(1) == strArray[0] &&
+                                strArray4[1].Substring(1) == strArray2[0])
+                            {
+                                areTheyParallel = true;
+                            }
+                        }
+                        if (!areTheyParallel)
+                            serialRes.Add(strArray[0] + "+" + strArray2[0]);
+
+                    }
+                }
+                else if (shortCircuit(strArray[1].Substring(1), strArray2[2].Substring(1)) || shortCircuit(strArray[2].Substring(1), strArray2[2].Substring(1)))
+                {
+                    bool areThereMore = false;
+                    for (int k = 0; k < resList.Count; k++)
+                    {
+                        string[] strArray3 = resList[k].Split("-"[0]);
+                        if (shortCircuit(strArray3[1].Substring(1), strArray2[2].Substring(1)) ||
+                            shortCircuit(strArray3[2].Substring(1), strArray2[2].Substring(1)))
+                        {
+                            if (!(strArray3[0] == strArray[0] || strArray3[0] == strArray2[0]))
+                                areThereMore = true;
+                        }
+                    }
+                    if (!areThereMore)
+                    {
+                        bool areTheyParallel = false;
+                        foreach (string parallel in parallelRes)
+                        {
+                            string[] strArray4 = parallel.Split("//"[0]);
+                            if (strArray4[0].Substring(1) == strArray[0] &&
+                                strArray4[1].Substring(1) == strArray2[0])
+                            {
+                                areTheyParallel = true;
+                            }
+                        }
+                        if (!areTheyParallel)
+                            serialRes.Add(strArray[0] + "+" + strArray2[0]);
+
+                    }
+                }
+                
+                    
+                
+            }
+        }
+
+    }
+
+    void printParallelandSerials()
+    {
+        parallelAndSerialText.text = "<b>Serial Resistors:\n</b>";
+        if (serialRes.Count == 0)
+            parallelAndSerialText.text += "---\n";
+        else
+        {
+            foreach (string serial in serialRes)
+            {
+                parallelAndSerialText.text += serial + "\n";
+            }
+        }
+        parallelAndSerialText.text += "<b>Parallel Resistors:\n</b>";
+        if (parallelRes.Count == 0)
+            parallelAndSerialText.text += "---";
+        else
+        {
+            foreach (string parallel in parallelRes)
+            {
+                parallelAndSerialText.text += parallel + "\n";
+            }
         }
     }
 
