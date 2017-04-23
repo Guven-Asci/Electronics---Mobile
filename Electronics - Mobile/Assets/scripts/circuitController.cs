@@ -3,21 +3,25 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 public class circuitController : MonoBehaviour {
     public GameObject hole;
     public GameObject resistor;
     public GameObject cable;
-    static public GameObject resistorOnMouse;
-    static public GameObject cableOnMouse;
+    public GameObject probe;
+    public GameObject resistorOnMouse;
+    public GameObject cableOnMouse;
+    public GameObject probeOnMouse;
     Transform oldHole;
-    public float temp = 9.5f;
+    float temp = 9.5f;
 
     Color defaultHoleColor;
     public GameObject startHole;
     Vector3 offset ;
     Vector3 holeStartPoint;
-    float xGap=0.22f,zGap=0.25f;
+    float xGap=0.44f,zGap=0.5f;
+    int xCount = 30, zCount = 5;
     public GameObject holeParent;
 
     Ray mouseRay;
@@ -27,7 +31,7 @@ public class circuitController : MonoBehaviour {
     bool isCableDrawing = false, isResDrawing=false;
     public Text onHand;
 
-    string selectedComponent = "cable";
+    string selectedComponent = "res";
     string firstPinTemp;
 
     public List<string> resList=new List<string>();
@@ -36,7 +40,11 @@ public class circuitController : MonoBehaviour {
     public List<string> parallelRes = new List<string>();
     public List<string> serialRes = new List<string>();
 
-    public Text parallelAndSerialText; 
+    public Text parallelAndSerialText;
+    public Image redProbeButton;
+    public Image blackProbeButton;
+
+    public string redProbePin="",blackProbePin="";
 	// Use this for initialization
 	void Start () {
 
@@ -45,9 +53,9 @@ public class circuitController : MonoBehaviour {
         
         offset = startHole.transform.position;
         holeStartPoint = offset;
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < zCount; i++)
         {
-            for (int j = 0; j < 60; j++)
+            for (int j = 0; j < xCount; j++)
             {
                 GameObject tempHole=Instantiate(hole, holeStartPoint, hole.transform.rotation) as GameObject;
                 tempHole.transform.SetParent(holeParent.transform);
@@ -57,15 +65,26 @@ public class circuitController : MonoBehaviour {
             holeStartPoint.x = offset.x;
             holeStartPoint.z -= zGap;
         }
-	
+        
+        
 	}
 	
 	// Update is called once per frame
 	void Update () {
         printParallelandSerials();
+        if(redProbePin!=""&&blackProbePin!="")
+            Debug.Log(findEquivalentRes(redProbePin, blackProbePin));
         
         if (Input.touchCount == 1)
         {
+            if (Input.GetTouch(0).position.x<50)
+                Camera.main.transform.Translate(-0.08f,0,0);
+            if (Screen.width-Input.GetTouch(0).position.x <50)
+                Camera.main.transform.Translate(0.08f, 0, 0);
+            if (Input.GetTouch(0).position.y <75)
+                Camera.main.transform.Translate(0, -0.04f, 0);
+            if (Screen.height - Input.GetTouch(0).position.y < 75)
+                Camera.main.transform.Translate(0, 0.04f, 0);
             mouseRay = Camera.main.ScreenPointToRay(new Vector3(Input.GetTouch(0).position.x, Input.GetTouch(0).position.y, temp));
 
             if (Physics.Raycast(mouseRay, out hit))
@@ -92,31 +111,53 @@ public class circuitController : MonoBehaviour {
             {
                 if (Physics.Raycast(mouseRay, out hit))
                 {
-                    if (hit.transform.tag == "Hole")
-                    {
+                    
                         if (selectedComponent=="cable")
                         {
+                            int coordinateX = (int)Mathf.Round((mousePosition.x - holeStartPoint.x) / xGap);
+                            int coordinateZ = zCount - (int)Mathf.Round(((mousePosition.z - holeStartPoint.z) / zGap));
+
+                            if(coordinateX>-2 && coordinateX<xCount+2 && coordinateZ>-2 && coordinateZ<zCount+2)
+                            {
+                                cableOnMouse = Instantiate(cable);
+                                cableOnMouse.GetComponent<curvedLine>().firstProbe = nearestHole(mousePosition).transform.position;
+                                firstPinTemp = nearestHole(mousePosition).transform.name.Substring(1);
+                            }
                             
-                            cableOnMouse = Instantiate(cable);
-                            cableOnMouse.GetComponent<curvedLine>().firstProbe = hit.transform.position;
-                            firstPinTemp = hit.transform.name.Substring(1);
                         }
 
                         if (selectedComponent == "res")
                         {
-                            resistorOnMouse = Instantiate(resistor, hit.transform.position, resistor.transform.rotation) as GameObject;
-                            resistorOnMouse.GetComponent<resScrpt>().firstProbe = hit.transform.position;
-                            resistorOnMouse.name = "R" + resCount.ToString();
-                            firstPinTemp = hit.transform.name;
-                            resCount++;
-                            
-                        }
-                            
+                            int coordinateX = (int)Mathf.Round((mousePosition.x - holeStartPoint.x) / xGap);
+                            int coordinateZ = zCount - (int)Mathf.Round(((mousePosition.z - holeStartPoint.z) / zGap));
 
+                            if (coordinateX > -2 && coordinateX < xCount+2 && coordinateZ > -2 && coordinateZ < zCount+2)
+                            {
+                                resistorOnMouse = Instantiate(resistor, hit.transform.position, resistor.transform.rotation) as GameObject;
+                                resistorOnMouse.GetComponent<resScrpt>().firstProbe = nearestHole(mousePosition).transform.position;
+                                resistorOnMouse.name = "R" + resCount.ToString();
+                                firstPinTemp = nearestHole(mousePosition).transform.name;
+                                resCount++;
+                            }
+                        
                     }
+                    else if (hit.transform.tag == "probe")
+                    {
+                        probeOnMouse = hit.transform.gameObject;
+                        probeOnMouse.GetComponent<probeControl>().enabled = true;
+                        selectedComponent = "probe";
+                        if (probeOnMouse.GetComponent<Renderer>().material.color == Color.red)
+                            redProbePin = "";
+                        else if (probeOnMouse.GetComponent<Renderer>().material.color == Color.black)
+                            blackProbePin = "";
+                
+                        
+                    }
+                    
                 }
 
             }
+            
             if (Input.GetTouch(0).phase == TouchPhase.Ended)
             {
                 if (selectedComponent == "cable" && cableOnMouse!=null)
@@ -130,8 +171,19 @@ public class circuitController : MonoBehaviour {
                 else if (selectedComponent == "res" && resistorOnMouse!=null)
                 {
                     resistorOnMouse.GetComponent<resScrpt>().secondProbe = nearestHole(mousePosition).transform.position;
-                    resList.Add(resistorOnMouse.name+"-"+firstPinTemp + "-"+nearestHole(mousePosition).transform.name);
+                    resList.Add(resistorOnMouse.name+"-"+firstPinTemp + "-"+nearestHole(mousePosition).transform.name+"-1000");
                     resistorOnMouse = null;     
+                }
+                else if (selectedComponent == "probe"&& probeOnMouse!=null)
+                {
+                    probeOnMouse.transform.position = nearestHole(mousePosition).transform.position;
+                    if (probeOnMouse.GetComponent<Renderer>().material.color == Color.red)
+                        redProbePin = nearestHole(mousePosition).name.Substring(1);
+                    else if (probeOnMouse.GetComponent<Renderer>().material.color == Color.black)
+                        blackProbePin = nearestHole(mousePosition).name.Substring(1); 
+                    probeOnMouse.GetComponent<probeControl>().enabled = false;
+                    probeOnMouse = null;
+                    selectedComponent = "cable";
                 }
                 findParallelRes();
                 findSerialRes();
@@ -143,8 +195,16 @@ public class circuitController : MonoBehaviour {
     GameObject nearestHole(Vector3 position)
     {
         int coordinateX =(int)Mathf.Round((position.x - holeStartPoint.x) / xGap);
-        int coordinateZ = 10 - (int)Mathf.Round(((position.z - holeStartPoint.z) / zGap));
-        //Debug.Log(coordinateZ.ToString() + "-" + coordinateX.ToString());
+        int coordinateZ = zCount - (int)Mathf.Round(((position.z - holeStartPoint.z) / zGap));
+
+        if (coordinateX < 0)
+            coordinateX = 0;
+        if (coordinateX > xCount)
+            coordinateX = xCount-1;
+        if (coordinateZ < 0)
+            coordinateZ = 0;
+        if (coordinateZ > zCount)
+            coordinateZ = zCount-1;
 
         return GameObject.Find((char)(coordinateZ+65) + (coordinateX+1).ToString());
     }
@@ -174,7 +234,7 @@ public class circuitController : MonoBehaviour {
 
     public void openSpecifications() {
         if(hit.transform.tag=="resistor"){
-            foreach (string res in resList)
+            foreach (string res in resList.ToArray())
             {
                 if (res.StartsWith(hit.transform.name))
                 {
@@ -248,9 +308,11 @@ public class circuitController : MonoBehaviour {
                         bool areTheyParallel = false;
                         foreach (string parallel in parallelRes)
                         {
-                            string[] strArray4 = parallel.Split("//"[0]);
-                            if (strArray4[0].Substring(1) == strArray[0] &&
-                                strArray4[1].Substring(1) == strArray2[0])
+                            string[] strArray4 = parallel.Split(new string[] { "//" }, StringSplitOptions.None);
+                            if ((strArray4[0] == strArray[0] &&
+                                strArray4[1] == strArray2[0])||
+                                (strArray4[1] == strArray[0] &&
+                                strArray4[0] == strArray2[0]))
                             {
                                 areTheyParallel = true;
                             }
@@ -278,10 +340,14 @@ public class circuitController : MonoBehaviour {
                         bool areTheyParallel = false;
                         foreach (string parallel in parallelRes)
                         {
-                            string[] strArray4 = parallel.Split("//"[0]);
-                            if (strArray4[0].Substring(1) == strArray[0] &&
-                                strArray4[1].Substring(1) == strArray2[0])
+                            string[] strArray4 = parallel.Split(new string[] { "//" }, StringSplitOptions.None);
+                            
+                            if ((strArray4[0] == strArray[0] &&
+                                strArray4[1] == strArray2[0]) ||
+                                (strArray4[1] == strArray[0] &&
+                                strArray4[0] == strArray2[0]))
                             {
+                                
                                 areTheyParallel = true;
                             }
                         }
@@ -296,6 +362,41 @@ public class circuitController : MonoBehaviour {
             }
         }
 
+    }
+
+    bool areTheyParallel(string firstRes,string secondRes)
+    {
+        foreach (string parallel in parallelRes)
+        {
+            string[] strArray4 = parallel.Split(new string[] { "//" }, StringSplitOptions.None);
+            if ((strArray4[0] == firstRes &&
+                strArray4[1] == secondRes) ||
+                (strArray4[1] == firstRes &&
+                strArray4[0] == secondRes))
+            {
+                return true;
+            }
+        }
+        return false;
+
+    }
+
+    bool areTheySerial(string firstRes,string secondRes)
+    {
+        foreach (string serial in serialRes)
+        {
+            string[] strArray4 = serial.Split('+');
+            if ((strArray4[0] == firstRes &&
+                strArray4[1] == secondRes) ||
+                (strArray4[1] == firstRes &&
+                strArray4[0] == secondRes))
+            {
+                return true;
+            }
+        }
+        return false;
+
+    
     }
 
     void printParallelandSerials()
@@ -368,4 +469,123 @@ public class circuitController : MonoBehaviour {
             return false;
     }
 
+    public List<string> tempList = new List<string>();
+    int crashControl = 0;
+    float equivalentRes(string firstPin, string secondPin)
+    {
+        if (crashControl == 0) { tempList = new List<string>(resList); }
+        crashControl++;
+        if (crashControl > 20) { Debug.Log("Crash"); return 0f; }
+        List<float> parallelList = new List<float>();
+
+        foreach (string first in tempList.ToArray())
+        {
+            string[] tempArray = first.Split('-');
+            
+            if (tempArray[1].Substring(1) == firstPin && tempArray[2].Substring(1) == secondPin ||
+                tempArray[2].Substring(1) == firstPin && tempArray[1].Substring(1) == secondPin)
+            {
+                
+                parallelList.Add(float.Parse(tempArray[3]));
+                tempList.Remove(first);
+                
+            }
+        }
+        foreach (string first in tempList.ToArray())
+        {
+            string[] tempArray = first.Split('-');
+            if (tempArray[1].Substring(1) == firstPin)
+            {
+                float a = equivalentRes(firstPin, tempArray[2].Substring(1));
+                tempList.Remove(first);
+                parallelList.Add(a + equivalentRes(tempArray[2].Substring(1), secondPin));
+            }
+            else if (tempArray[2].Substring(1) == firstPin)
+            {
+                float a = equivalentRes(firstPin, tempArray[1].Substring(1));
+                tempList.Remove(first);
+                parallelList.Add(a + equivalentRes(tempArray[1].Substring(1), secondPin));
+            }
+            
+        }
+        double sum=0f;
+        foreach (float resValue in parallelList)
+        {
+            sum += 1/resValue;
+        }
+        sum = 1 / sum;
+
+        return (float)sum;
+    }
+
+    float findEquivalentRes(string firstPin, string secondPin)
+    {
+        float result;
+        tempList = new List<string>(resList);
+        result = equivalentRes(firstPin, secondPin);
+        crashControl = 0;
+        return result;
+        
+        
+    }
+
+    public void newProbe(bool redORblack)
+    {
+        if (!redORblack && redProbePin == "")
+        {
+            redProbeButton.GetComponent<Image>().color = new Color(1, 1, 1, 0.3f);
+            probeOnMouse = Instantiate(probe);
+            probeOnMouse.GetComponent<Renderer>().material.color = Color.red;
+            probeOnMouse.GetComponent<probeControl>().enabled = true;
+            selectedComponent = "probe";
+        }
+        else if(blackProbePin == "")
+        {
+            blackProbeButton.GetComponent<Image>().color = new Color(1, 1, 1, 0.3f);
+            probeOnMouse = Instantiate(probe);
+            probeOnMouse.GetComponent<Renderer>().material.color = Color.black;
+            probeOnMouse.GetComponent<probeControl>().enabled = true;
+            selectedComponent = "probe";
+        }
+
+
+        
+
+    }
+
+    public void probeIsback(bool redORblack)
+    {
+        if (probeOnMouse!=null)
+        {
+            PointerEventData pointerData = new PointerEventData(EventSystem.current)
+            {
+                pointerId = -1,
+            };
+
+            pointerData.position = Input.mousePosition;
+
+            List<RaycastResult> results = new List<RaycastResult>();
+            EventSystem.current.RaycastAll(pointerData, results);
+
+            if (results.Count > 0)
+            {
+                if (results[0].gameObject.name == "redProbe"&&
+                    probeOnMouse.GetComponent<Renderer>().material.color == Color.red)
+                {
+                    redProbeButton.GetComponent<Image>().color = Color.white;
+                    Destroy(probeOnMouse);
+                    probeOnMouse = null;
+                }
+                else if (results[0].gameObject.name == "blackProbe" &&
+                    probeOnMouse.GetComponent<Renderer>().material.color == Color.black)
+                {
+                    blackProbeButton.GetComponent<Image>().color = Color.white;
+                    Destroy(probeOnMouse);
+                    probeOnMouse = null;
+                }
+            } 
+        }
+        
+
+    }
 }
