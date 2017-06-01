@@ -47,11 +47,14 @@
   <ItemGroup>
      <Compile Include="Assets\LeanTouch\Editor\LeanTouch_Editor.cs" />
      <None Include="Assets\LeanTouch\Examples\Fonts\OFL.txt" />
+     <None Include="Assets\scripts\SharpCircuit-master\SharpCircuits\bin\Debug\ServiceStack.Text.xml" />
      <None Include="Assets\circuit\shaders\WrapAlpha.shader" />
      <None Include="Assets\LeanTouch\Examples\Shaders\BackgroundSkybox.shader" />
      <None Include="Assets\LeanTouch\Examples\Shaders\Smooth.shader" />
      <None Include="Assets\circuit\Readme.txt" />
      <None Include="Assets\circuit\shaders\WrapDiffuse.shader" />
+     <None Include="Assets\scripts\SharpCircuit-master\SharpCircuits\lib\ServiceStack.Text.xml" />
+     <None Include="Assets\scripts\SharpCircuit-master\SharpCircuits\obj\Debug\SharpCircuit.csproj.FileListAbsolute.txt" />
  <Reference Include="UnityEditor.Advertisements">
  <HintPath>C:/Program Files/Unity/5.4.3/Editor/Data/UnityExtensions/Unity/Advertisements/Editor/UnityEditor.Advertisements.dll</HintPath>
  </Reference>
